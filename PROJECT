@@ -1,0 +1,16 @@
+domain: codepy.net
+layout:
+- go.kubebuilder.io/v3
+projectName: k8s-crd-demo
+repo: k8s-crd-demo
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: codepy.net
+  group: devops
+  kind: App
+  path: k8s-crd-demo/api/v1
+  version: v1
+version: "3"
