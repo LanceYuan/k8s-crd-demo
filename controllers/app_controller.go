@@ -19,14 +19,20 @@ package controllers
 import (
 	"context"
 	devopsv1 "k8s-crd-demo/api/v1"
-	corev1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const (
+	controllerName string = "caddy-controller"
+	controllerNamespace string = "kube-ops"
+)
 // AppReconciler reconciles a App object
 type AppReconciler struct {
 	client.Client
@@ -49,18 +55,39 @@ type AppReconciler struct {
 func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	res := ctrl.Result{}
-
-	var app devopsv1.App
+	instance := &devopsv1.App{}
 	// TODO(user): your logic here
-	if err := r.Get(ctx, req.NamespacedName, &app); err != nil {
-		return res, err
+	if err := r.Get(ctx, req.NamespacedName, instance); err != nil {
+		if errors.IsNotFound(err) {
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
 	}
-	r.List(ctx, &corev1.DeploymentList{})
-	appCopy := app.DeepCopy()
-	appCopy.Status.CreateTime = metav1.Now()
-	if err := r.Status().Update(ctx, appCopy); err != nil {
-		return res, err
+	if instance.DeletionTimestamp != nil {
+		return reconcile.Result{}, nil
+	}
+	deployment := &appsv1.Deployment{}
+	svc := &corev1.Service{}
+	reqNamespaceName := req.NamespacedName
+	reqNamespaceName.Name = controllerName
+	reqNamespaceName.Namespace = controllerNamespace
+	if err := r.Client.Get(ctx, reqNamespaceName, deployment); err != nil {
+		if !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+		deployment = NewDeployment(instance)
+		if err := r.Client.Create(ctx, deployment); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := r.Client.Get(ctx, reqNamespaceName, svc); err != nil {
+			if !errors.IsNotFound(err) {
+				return ctrl.Result{}, err
+			}
+			svc = NewService(instance)
+			if err := r.Client.Create(ctx, deployment); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 	}
 	return ctrl.Result{}, nil
 }
