@@ -4,7 +4,7 @@ import (
 	devopsv1 "k8s-crd-demo/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
+	networkingv1 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
@@ -101,7 +101,7 @@ func NewIngress(app *devopsv1.App) *networkingv1.Ingress {
 		},
 	}
 	pathType := networkingv1.PathTypeImplementationSpecific
-	for _, host := range app.Spec.Host {
+	for _, host := range app.Spec.Hosts {
 		ingObj.Spec.Rules = append(ingObj.Spec.Rules, networkingv1.IngressRule{
 			Host: host,
 			IngressRuleValue: networkingv1.IngressRuleValue{
@@ -111,13 +111,15 @@ func NewIngress(app *devopsv1.App) *networkingv1.Ingress {
 							Path:     app.Spec.Path,
 							PathType: &pathType,
 							Backend: networkingv1.IngressBackend{
-								Service: &networkingv1.IngressServiceBackend{
-									Name: controllerName,
-									Port: networkingv1.ServiceBackendPort{
-										Name:   "http",
-										Number: 80,
-									},
-								},
+								ServiceName: controllerName,
+								ServicePort: intstr.IntOrString{Type: intstr.Int, IntVal: 80},
+								//Service: &networkingv1.IngressServiceBackend{
+								//	Name: controllerName,
+								//	Port: networkingv1.ServiceBackendPort{
+								//		Name:   "http",
+								//		Number: 80,
+								//	},
+								//},
 							},
 						},
 					},
