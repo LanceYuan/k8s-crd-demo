@@ -5,5 +5,5 @@ metadata:
 spec:
   ingressClassName: nginx
   path: /abc.txt
-  Hosts:
+  hosts:
     - app.codepy.net
