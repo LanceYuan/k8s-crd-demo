@@ -30,9 +30,10 @@ import (
 )
 
 const (
-	controllerName string = "caddy-controller"
+	controllerName      string = "caddy-controller"
 	controllerNamespace string = "kube-ops"
 )
+
 // AppReconciler reconciles a App object
 type AppReconciler struct {
 	client.Client
@@ -79,14 +80,14 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		if err := r.Client.Create(ctx, deployment); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.Client.Get(ctx, reqNamespaceName, svc); err != nil {
-			if !errors.IsNotFound(err) {
-				return ctrl.Result{}, err
-			}
-			svc = NewService(instance)
-			if err := r.Client.Create(ctx, deployment); err != nil {
-				return ctrl.Result{}, err
-			}
+	}
+	if err := r.Client.Get(ctx, reqNamespaceName, svc); err != nil {
+		if !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+		svc = NewService(instance)
+		if err := r.Client.Create(ctx, svc); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil

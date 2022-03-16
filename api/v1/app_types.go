@@ -18,7 +18,6 @@ package v1
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,12 +28,9 @@ import (
 type AppSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Replicas *int32               `json:"replicas"`
-	Image    string               `json:"image,omitempty"`
-	Envs     []corev1.EnvVar      `json:"envs,omitempty"`
-	Ports    []corev1.ServicePort `json:"ports,omitempty"`
-	Paths    []string             `json:"paths"`
-	Domains  []string             `json:"domains"`
+	Namespace string   `json:"namespace"`
+	Paths     []string `json:"paths"`
+	Domains   []string `json:"domains"`
 
 	// Foo is an example field of App. Edit app_types.go to remove/update
 }
