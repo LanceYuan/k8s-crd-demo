@@ -29,8 +29,8 @@ type AppSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	IngressClassName *string  `json:"ingressClassName"`
-	Path             string   `json:"paths"`
-	Host             []string `json:"domains"`
+	Path             string   `json:"path"`
+	Hosts            []string `json:"Hosts"`
 
 	// Foo is an example field of App. Edit app_types.go to remove/update
 }

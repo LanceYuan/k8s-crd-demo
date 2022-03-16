@@ -3,4 +3,7 @@ kind: App
 metadata:
   name: app-sample
 spec:
-  foo: lance
+  ingressClassName: nginx
+  path: /abc.txt
+  Hosts:
+    - app.codepy.net

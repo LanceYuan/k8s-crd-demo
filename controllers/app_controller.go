@@ -54,19 +54,20 @@ type AppReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
 	instance := &devopsv1.App{}
 	// TODO(user): your logic here
 	if err := r.Get(ctx, req.NamespacedName, instance); err != nil {
 		if !errors.IsNotFound(err) {
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, err
 		}
+		logger.Info("create ingress...")
 		ingress := NewIngress(instance)
 		if err := r.Client.Create(ctx, ingress); err != nil {
 			return ctrl.Result{}, err
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{}, nil
 	}
 	if instance.DeletionTimestamp != nil {
 		ingress := &networkingv1.Ingress{}
