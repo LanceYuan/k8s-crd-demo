@@ -4,6 +4,7 @@ import (
 	devopsv1 "k8s-crd-demo/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
@@ -80,4 +81,49 @@ func NewService(app *devopsv1.App) *corev1.Service {
 			Type: corev1.ServiceTypeClusterIP,
 		},
 	}
+}
+
+func NewIngress(app *devopsv1.App) *networkingv1.Ingress {
+	ingObj := &networkingv1.Ingress{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Ingress",
+			APIVersion: "networking.k8s.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      app.Name,
+			Namespace: app.Namespace,
+			Labels: map[string]string{
+				"app": app.Name,
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: app.Spec.IngressClassName,
+		},
+	}
+	pathType := networkingv1.PathTypeImplementationSpecific
+	for _, host := range app.Spec.Host {
+		ingObj.Spec.Rules = append(ingObj.Spec.Rules, networkingv1.IngressRule{
+			Host: host,
+			IngressRuleValue: networkingv1.IngressRuleValue{
+				HTTP: &networkingv1.HTTPIngressRuleValue{
+					Paths: []networkingv1.HTTPIngressPath{
+						{
+							Path:     app.Spec.Path,
+							PathType: &pathType,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: controllerName,
+									Port: networkingv1.ServiceBackendPort{
+										Name:   "http",
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+	}
+	return ingObj
 }
