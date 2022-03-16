@@ -30,8 +30,7 @@ import (
 )
 
 const (
-	controllerName      string = "caddy-controller"
-	controllerNamespace string = "kube-ops"
+	controllerName string = "caddy-controller"
 )
 
 // AppReconciler reconciles a App object
@@ -71,7 +70,6 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	svc := &corev1.Service{}
 	reqNamespaceName := req.NamespacedName
 	reqNamespaceName.Name = controllerName
-	reqNamespaceName.Namespace = controllerNamespace
 	if err := r.Client.Get(ctx, reqNamespaceName, deployment); err != nil {
 		if !errors.IsNotFound(err) {
 			return ctrl.Result{}, err

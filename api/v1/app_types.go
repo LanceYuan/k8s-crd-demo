@@ -28,9 +28,9 @@ import (
 type AppSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Namespace string   `json:"namespace"`
-	Paths     []string `json:"paths"`
-	Domains   []string `json:"domains"`
+
+	Paths   []string `json:"paths"`
+	Domains []string `json:"domains"`
 
 	// Foo is an example field of App. Edit app_types.go to remove/update
 }
