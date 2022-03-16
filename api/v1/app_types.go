@@ -17,7 +17,7 @@ limitations under the License.
 package v1
 
 import (
-	appsv1 "k8s.io/api/apps/v1"
+	networkingv1 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,7 +30,7 @@ type AppSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 	IngressClassName *string  `json:"ingressClassName"`
 	Path             string   `json:"path"`
-	Hosts            []string `json:"Hosts"`
+	Hosts            []string `json:"hosts"`
 
 	// Foo is an example field of App. Edit app_types.go to remove/update
 }
@@ -40,7 +40,7 @@ type AppStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	// CreateTime Sync time.
-	appsv1.DeploymentStatus `json:",inline"`
+	networkingv1.IngressStatus `json:",inline"`
 }
 
 //+kubebuilder:object:root=true

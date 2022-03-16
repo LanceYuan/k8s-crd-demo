@@ -21,7 +21,7 @@ import (
 	devopsv1 "k8s-crd-demo/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
+	networkingv1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,15 +59,22 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	instance := &devopsv1.App{}
 	// TODO(user): your logic here
 	if err := r.Get(ctx, req.NamespacedName, instance); err != nil {
-		if !errors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
-		logger.Info("create ingress...")
-		ingress := NewIngress(instance)
-		if err := r.Client.Create(ctx, ingress); err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("get error!!!!!")
 			return ctrl.Result{}, err
 		}
 		return reconcile.Result{}, nil
+	}
+	ingress := &networkingv1.Ingress{}
+	if err := r.Client.Get(ctx, req.NamespacedName, ingress); err != nil {
+		if !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+		ingress = NewIngress(instance)
+		if err := r.Client.Create(ctx, ingress); err != nil {
+			logger.Info("create ingress !!!!!")
+			return ctrl.Result{}, err
+		}
 	}
 	if instance.DeletionTimestamp != nil {
 		ingress := &networkingv1.Ingress{}
