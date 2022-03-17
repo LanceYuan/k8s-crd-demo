@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -60,8 +61,29 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// TODO(user): your logic here
 	if err := r.Get(ctx, req.NamespacedName, instance); err != nil {
 		if errors.IsNotFound(err) {
-			logger.Info("get error!!!!!")
+			logger.Info("get App not found!!!!!")
+			return ctrl.Result{}, nil
+		}
+		logger.Info("get App error!!!!!")
+		return reconcile.Result{}, err
+	}
+	if !instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		logger.Info("start delete ingress....")
+		ingress := &networkingv1.Ingress{}
+		if err := r.Client.Get(ctx, req.NamespacedName, ingress); err != nil {
+			if errors.IsNotFound(err) {
+				return reconcile.Result{}, nil
+			}
 			return ctrl.Result{}, err
+		} else {
+			if err := r.Client.Delete(ctx, ingress); err != nil {
+				return ctrl.Result{}, err
+			} else {
+				instance.ObjectMeta.Finalizers = []string{}
+				if err := r.Update(ctx, instance); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
 		}
 		return reconcile.Result{}, nil
 	}
@@ -74,21 +96,18 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		if err := r.Client.Create(ctx, ingress); err != nil {
 			logger.Info("create ingress !!!!!")
 			return ctrl.Result{}, err
-		}
-	}
-	if instance.DeletionTimestamp != nil {
-		ingress := &networkingv1.Ingress{}
-		if err := r.Client.Get(ctx, req.NamespacedName, ingress); err != nil {
-			if errors.IsNotFound(err) {
-				return reconcile.Result{}, nil
-			}
-			if err := r.Client.Delete(ctx, ingress); err != nil {
+		} else {
+			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, instance.Name)
+			if err := r.Client.Update(ctx, instance); err != nil {
 				return ctrl.Result{}, err
 			}
-			return ctrl.Result{}, err
 		}
-		return reconcile.Result{}, nil
 	}
+	if err := controllerutil.SetControllerReference(instance, ingress, r.Scheme); err != nil {
+		logger.Info("sync ingress error....")
+		return ctrl.Result{}, err
+	}
+
 	deployment := &appsv1.Deployment{}
 	svc := &corev1.Service{}
 	reqNamespaceName := req.NamespacedName
