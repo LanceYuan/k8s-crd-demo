@@ -36,17 +36,18 @@ spec:
           spec:
             description: AppSpec defines the desired state of App
             properties:
+              content:
+                type: string
               hosts:
                 items:
                   type: string
                 type: array
               ingressClassName:
-                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                  Important: Run "make" to regenerate code after modifying this file'
                 type: string
               path:
                 type: string
             required:
+            - content
             - hosts
             - ingressClassName
             - path
