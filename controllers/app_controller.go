@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -125,6 +126,11 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		if !errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
+		logger.Info("add caddy route !!!!!")
+		if err := AddCaddyRoute(instance); err != nil {
+			logger.Info("add caddy route error !!!!!")
+			return ctrl.Result{}, err
+		}
 		ingress = NewIngress(instance)
 		logger.Info("create ingress !!!!!")
 		if err := r.Client.Create(ctx, ingress); err != nil {
@@ -141,7 +147,7 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	} else {
 		logger.Info("get Ingress exist !!!!!")
 		newIngress := NewIngress(instance)
-		if newIngress != ingress {
+		if !reflect.DeepEqual(newIngress.Spec, ingress.Spec) {
 			logger.Info("update Ingress !!!!!")
 			if err := r.Client.Update(ctx, newIngress); err != nil {
 				return ctrl.Result{}, err
