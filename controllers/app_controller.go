@@ -18,22 +18,29 @@ package controllers
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	devopsv1 "k8s-crd-demo/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
 	controllerName string = "caddy-controller"
 )
+
+var logger logr.Logger
 
 // AppReconciler reconciles a App object
 type AppReconciler struct {
@@ -55,7 +62,7 @@ type AppReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger = log.FromContext(ctx)
 
 	instance := &devopsv1.App{}
 	// TODO(user): your logic here
@@ -67,47 +74,6 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		logger.Info("get App error!!!!!")
 		return reconcile.Result{}, err
 	}
-	if !instance.ObjectMeta.DeletionTimestamp.IsZero() {
-		logger.Info("start delete ingress....")
-		ingress := &networkingv1.Ingress{}
-		if err := r.Client.Get(ctx, req.NamespacedName, ingress); err != nil {
-			if errors.IsNotFound(err) {
-				return reconcile.Result{}, nil
-			}
-			return ctrl.Result{}, err
-		} else {
-			if err := r.Client.Delete(ctx, ingress); err != nil {
-				return ctrl.Result{}, err
-			} else {
-				instance.ObjectMeta.Finalizers = []string{}
-				if err := r.Update(ctx, instance); err != nil {
-					return ctrl.Result{}, err
-				}
-			}
-		}
-		return reconcile.Result{}, nil
-	}
-	ingress := &networkingv1.Ingress{}
-	if err := r.Client.Get(ctx, req.NamespacedName, ingress); err != nil {
-		if !errors.IsNotFound(err) {
-			return ctrl.Result{}, err
-		}
-		ingress = NewIngress(instance)
-		if err := r.Client.Create(ctx, ingress); err != nil {
-			logger.Info("create ingress !!!!!")
-			return ctrl.Result{}, err
-		} else {
-			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, instance.Name)
-			if err := r.Client.Update(ctx, instance); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	}
-	if err := controllerutil.SetControllerReference(instance, ingress, r.Scheme); err != nil {
-		logger.Info("sync ingress error....")
-		return ctrl.Result{}, err
-	}
-
 	deployment := &appsv1.Deployment{}
 	svc := &corev1.Service{}
 	reqNamespaceName := req.NamespacedName
@@ -130,12 +96,84 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{}, err
 		}
 	}
-	return ctrl.Result{}, nil
+	if !instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		logger.Info("start delete ingress....")
+		ingress := &networkingv1.Ingress{}
+		if err := r.Client.Get(ctx, req.NamespacedName, ingress); err != nil {
+			if errors.IsNotFound(err) {
+				instance.ObjectMeta.Finalizers = []string{}
+				if err := r.Update(ctx, instance); err != nil {
+					return ctrl.Result{}, err
+				}
+				return reconcile.Result{}, nil
+			}
+			return ctrl.Result{}, err
+		} else {
+			if err := r.Client.Delete(ctx, ingress); err != nil {
+				return ctrl.Result{}, err
+			} else {
+				instance.ObjectMeta.Finalizers = []string{}
+				if err := r.Update(ctx, instance); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+		}
+		return reconcile.Result{}, nil
+	}
+	ingress := &networkingv1.Ingress{}
+	if err := r.Client.Get(ctx, req.NamespacedName, ingress); err != nil {
+		if !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+		ingress = NewIngress(instance)
+		logger.Info("create ingress !!!!!")
+		if err := r.Client.Create(ctx, ingress); err != nil {
+			return ctrl.Result{}, err
+		} else {
+			logger.Info("update App finalizer !!!!!")
+			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, instance.Name)
+			if err := r.Client.Update(ctx, instance); err != nil {
+				logger.Info("update finalizer err !!!!!")
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
+	} else {
+		logger.Info("get Ingress exist !!!!!")
+		newIngress := NewIngress(instance)
+		if newIngress != ingress {
+			logger.Info("update Ingress !!!!!")
+			if err := r.Client.Update(ctx, newIngress); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+	//if err := controllerutil.SetControllerReference(instance, ingress, r.Scheme); err != nil {
+	//	logger.Info("sync ingress error....")
+	//	return ctrl.Result{}, err
+	//}
+}
+func (r *AppReconciler) DeleteIngress(event event.DeleteEvent, limiter workqueue.RateLimitingInterface) {
+	name := event.Object.GetName()
+	namespace := event.Object.GetNamespace()
+	instance := &devopsv1.App{}
+	reqNamespaceName := types.NamespacedName{Name: name, Namespace: namespace}
+	if err := r.Get(context.TODO(), reqNamespaceName, instance); err != nil {
+		logger.Info(err.Error())
+	} else {
+		if err := r.Delete(context.TODO(), instance); err != nil {
+			logger.Info(err.Error())
+		}
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&devopsv1.App{}).
+		Watches(&source.Kind{
+			Type: &networkingv1.Ingress{}},
+			handler.Funcs{DeleteFunc: r.DeleteIngress}).
 		Complete(r)
 }
