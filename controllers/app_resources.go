@@ -26,7 +26,7 @@ func NewDeployment(app *devopsv1.App) *appsv1.Deployment {
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 			},
-			Replicas: pointer.Int32Ptr(2),
+			Replicas: pointer.Int32Ptr(1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: selector,
 			},
@@ -40,13 +40,25 @@ func NewDeployment(app *devopsv1.App) *appsv1.Deployment {
 					Containers: []corev1.Container{
 						{
 							Name:  controllerName,
-							Image: "caddy:2.4.6",
+							Image: "lanceyuan/caddy:v2.4.6",
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "http",
 									Protocol:      corev1.ProtocolTCP,
 									ContainerPort: 80,
 								},
+							},
+							LivenessProbe: &corev1.Probe{
+								Handler:             corev1.Handler{HTTPGet: &corev1.HTTPGetAction{Port: intstr.IntOrString{Type: intstr.Int, IntVal: 8080}, Path: "/health", Scheme: corev1.URISchemeHTTP}},
+								InitialDelaySeconds: 10,
+								TimeoutSeconds:      10,
+								PeriodSeconds:       10,
+							},
+							ReadinessProbe: &corev1.Probe{
+								Handler:             corev1.Handler{HTTPGet: &corev1.HTTPGetAction{Port: intstr.IntOrString{Type: intstr.Int, IntVal: 8080}, Path: "/health", Scheme: corev1.URISchemeHTTP}},
+								InitialDelaySeconds: 10,
+								TimeoutSeconds:      10,
+								PeriodSeconds:       10,
 							},
 						},
 					},
@@ -75,7 +87,13 @@ func NewService(app *devopsv1.App) *corev1.Service {
 					Name:       "http",
 					Protocol:   corev1.ProtocolTCP,
 					Port:       80,
-					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 80},
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				},
+				{
+					Name:       "admin",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       2019,
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 2019},
 				},
 			},
 			Type: corev1.ServiceTypeClusterIP,
